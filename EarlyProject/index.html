@@ -1,0 +1,397 @@
+<html>
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+	<title> 档案登记 </title>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+	<meta name="format-detection" content="telephone=no"/>
+	<meta name="apple-mobile-web-app-status-bar-style" content="black"/>
+	<script src="jquery-1.9.1.min.js"></script>
+</head>
+<div align="center">
+	请选择教师姓名：
+	<select id="tealist" style="width:125px;"></select>
+
+	<br>
+	请选择学生班级：
+	<select id="classlist" onchange="classchange()" style="width:125px;"></select>
+
+	<br>
+	请选择学生姓名：
+	<select id="studentslist" onchange="baseinfoshow()" style="width:125px;"></select>
+	<br>
+	请填写交流内容：
+	<br>
+	<textarea id="maintext" rows="10" cols="50"></textarea>
+	<br>
+	<br>
+
+	<img id = "studentsphoto" src="" height="200" width="150"  alt="照片信息" />
+	<br>
+	<br>
+
+	请选择附件：
+	<input type="file" id="pic" name="pic" onchange="addFileInfo()" accept="image/*" multiple="multiple"/>
+
+	<div id="uploadslist">
+
+	</div>
+	<p id="baseinfoshow"> </p>
+	<p id="infoshow"> </p>
+	<input type = "button" id = "uploadbutton" value = "上传附件" onclick = "uploadfile()">
+	<input type = "button" value = "登记交流内容" onclick = "signtext()">
+</div>
+<script>
+	var filelist = new Array();
+	var urllist = new Array();
+	var studentslist = new Array();
+	$.ajax({
+		type: "GET",
+		url: "getinfo.php?method=init",
+		dataType:"json",
+		success: function (res) {
+			if (res.error == 0)
+			{
+				getteachers(res);
+				getclass(res);
+			}
+		}
+	});
+
+	function baseinfoshow()
+	{
+		var baseinfo = document.getElementById("baseinfoshow");
+		var slist = document.getElementById("studentslist");
+		var studentsphoto = document.getElementById("studentsphoto");
+		for (var i = 0; i < studentslist.length; i++)
+		{
+			if (studentslist[i].sid == slist.value)
+			{
+				baseinfo.innerText = studentslist[i].baseinfo;
+				if (studentslist[i].photourl != "")
+				{
+					studentsphoto.src = "http://wjh-blog.test.upcdn.net/sign.wjhwjhn.com/uploads/" + studentslist[i].photourl;
+				}
+				break;
+			}
+		}
+
+	}
+
+	function getfilesize(size)
+	{
+		if (!size) return "";
+		var num = 1024.00; //byte
+		if (size < num)
+			return size + "B";
+		if (size < Math.pow(num, 2))
+			return (size / num).toFixed(2) + "KB"; //kb
+		if (size < Math.pow(num, 3))
+			return (size / Math.pow(num, 2)).toFixed(2) + "MB"; //M
+		if (size < Math.pow(num, 4))
+			return (size / Math.pow(num, 3)).toFixed(2) + "GB"; //G
+		return (size / Math.pow(num, 4)).toFixed(2) + "TB"; //T
+	}
+
+	function setphotoret(data)
+	{
+		if (data.setphoto == null)
+		{
+			alert("设置照片失败！");
+			return;
+		}
+		if (data.setphoto.res > 0)
+		{
+			alert("设置照片成功！");
+		}
+	}
+
+
+	function setphoto(index)
+	{
+		if (urllist[index] == "")
+		{
+			alert("请先上传照片！");
+			return;
+		}
+		var sid = document.getElementById("studentslist").value;
+		$.ajax({
+			type: "GET",
+			url: "getinfo.php?method=setphoto&arg=" + urllist[index] + "&arg2=" + sid,
+			dataType:"json",
+			success: function (res) {
+				if (res.error == 0)
+				{
+					setphotoret(res);
+				}
+			}
+		});
+		//updateshow();
+	}
+
+	function updateshow()
+	{
+		document.getElementById("uploadslist").innerHTML = "";
+		for(var i = 0; i < filelist.length; i++)
+		{
+			var file = filelist[i];
+			var div = document.createElement("div");
+			div.innerHTML = "第"+ (i + 1) +"个文件名称："+ file.name + ", 文件大小:"+ getfilesize(file.size);
+			if (urllist[i] != "")
+			{
+				div.innerHTML += " 已上传 "　+ "<a href=\"uploads/" + urllist[i] +"\" target=\"_blank\">点击查看</a>\n";
+			}
+			div.innerHTML += " <input type = \"button\" value = \"删除\" onclick = \"deleteindex(" + i +")\">";
+			div.innerHTML += " <input type = \"button\" value = \"设为照片\" onclick = \"setphoto(" + i +")\">";
+			document.getElementById("uploadslist").appendChild(div);
+		}
+
+	}
+
+	function deleteindex(index)
+	{
+		filelist.splice(index, 1);
+		urllist.splice(index, 1);
+		updateshow();
+	}
+
+	function addFileInfo()
+	{
+
+		var picFile = document.getElementById("pic");
+		var files = picFile.files;
+		for(var i = 0; i < files.length; i++)
+		{
+			filelist.push(files[i]);
+			urllist.push("");
+		}
+		updateshow();
+	}
+
+	function uploadfinish()
+	{
+		updateshow();
+		var bom = document.getElementById("uploadbutton");
+		var info = document.getElementById("infoshow");
+		var comp = 0;
+		for(var i = 0; i < filelist.length; i++)
+		{
+			if (urllist[i] != "")
+			{
+				comp++;
+			}
+		}
+		if (comp < filelist.length)
+		{
+			info.innerText = "正在上传图片(已完成：" + comp + "/" + filelist.length + ")";
+		}
+		else
+		{
+			info.innerText = "上传成功(已完成：" + comp + "/" + filelist.length + ")";
+			bom.value = "重新上传";
+			bom.disabled = false;
+		}
+	}
+
+	function uploadmain(index)
+	{
+		var file = filelist[index];
+		var updata = new FormData();
+		updata.append("uploaded", file);
+		$.ajax({
+			url: "upload.php",
+			data: updata,
+			type: 'POST',
+			dataType: 'json',
+			cache: false,
+			processData: false,
+			contentType: false,
+			success: function(result)
+			{
+				if (result.error == 0)
+				{
+					urllist[index] = result.pic;
+					uploadfinish();
+				}
+				else
+				{
+					alert(result.msg);
+				}
+
+			},
+			error: function(err)
+			{
+				alert("由于您的网络原因，文件上传失败！请确定网络连接正常，请刷新后使用");
+			}
+		})
+	}
+
+	function uploadfile() {
+		if (filelist.length == 0)
+		{
+			alert("还没有选择要上传的文件呢");
+			return;
+		}
+		var bom = document.getElementById("uploadbutton");
+		bom.value = "正在上传中...";
+		bom.disabled = true;
+		var info = document.getElementById("infoshow");
+		info.innerText = "正在上传图片...";
+		for(var i = 0; i < filelist.length; i++)
+		{
+			uploadmain(i);
+		}
+
+	}
+	function signtext() {
+		for(var i = 0; i < filelist.length; i++)
+		{
+			if (urllist[i] == "")
+			{
+				alert("有文件尚未上传成功，请先点击上传按钮");
+				return;
+			}
+		}
+
+		var sid = document.getElementById("studentslist").value;
+		var tid = document.getElementById("tealist").value;
+		var text = document.getElementById("maintext").value;
+		if (text == "")
+		{
+			alert("未填写交流内容");
+			return;
+		}
+		if (tid == 0)
+		{
+			alert("未选择教师");
+			return;
+		}
+		if (sid == 0)
+		{
+			alert("未选择学生");
+			return;
+		}
+		if (urllist.length != filelist.length)
+		{
+			alert("附件内容似乎上传失败，请刷新后重试");
+			return;
+		}
+		uploadurl = "";
+		for (var i = 0; i < urllist.length; i++)
+		{
+			uploadurl += urllist[i] + "|";
+		}
+		filename = "";
+		for (var i = 0; i < filelist.length; i++)
+		{
+			filename += filelist[i].name + "|";
+		}
+		var info = document.getElementById("infoshow");
+		info.innerText = "正在上传内容...";
+		$.ajax({
+			type: "POST",
+			url: "getinfo.php?method=signtext",
+			data: {
+				sid: sid,
+				tid: tid,
+				text: text,
+				filename : filename,
+				uploadurl : uploadurl,
+			},
+			dataType:"json",
+			success: function (res) {
+				if (res.error == 0)
+				{
+					signtextret(res);
+				}
+			}
+		});
+	}
+
+	function signtextret(data)
+	{
+		var info = document.getElementById("infoshow");
+		if (data.signstudentstext == null)
+		{
+			info.innerText = "交流内容登记失败";
+			alert("提交失败");
+		}
+		if (data.signstudentstext.res > 0)
+		{
+			info.innerText = "交流内容登记成功";
+			alert("提交成功");
+		}
+		else
+		{
+			info.innerText = "交流内容登记失败";
+			alert("提交失败");
+		}
+	}
+
+	function getclass(data)
+	{
+		var list = document.getElementById("classlist");
+		if (data.getclass == null)
+		{
+			list.options.add(new Option("无内容", 0));
+			return;
+		}
+		for (var i = 0; i < data.getclass.length; i++)
+		{
+			var temp = data.getclass[i];
+			list.options.add(new Option(temp.name,temp.cid));
+		}
+		classchange();
+	}
+
+	function getteachers(data)
+	{
+		var list = document.getElementById("tealist");
+		if (data.getteachers == null)
+		{
+			list.options.add(new Option("无内容", 0));
+			return;
+		}
+		for (var i = 0; i < data.getteachers.length; i++)
+		{
+			var temp = data.getteachers[i];
+			list.options.add(new Option(temp.name,temp.tid));
+		}
+	}
+
+
+	function getstudnets(data)
+	{
+		var list = document.getElementById("studentslist");
+		list.innerText = "";
+		if (data.getstudents == null)
+		{
+			list.options.add(new Option("无内容", 0));
+			return;
+		}
+		studentslist = data.getstudents;
+		for (var i = 0; i < data.getstudents.length; i++)
+		{
+			var temp = data.getstudents[i];
+			list.options.add(new Option(temp.name, temp.sid));
+		}
+		baseinfoshow();
+	}
+
+	function classchange()
+	{
+		$.ajax({
+			type: "GET",
+			url: "getinfo.php?method=getstudents&arg=" + document.getElementById("classlist").value,
+			dataType:"json",
+			success: function (res) {
+				if (res.error == 0)
+				{
+					getstudnets(res);
+				}
+			}
+		});
+	}
+
+</script>
+
+<body>

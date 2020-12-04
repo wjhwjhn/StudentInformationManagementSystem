@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+	<title> 档案查看 </title>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+	<meta name="format-detection" content="telephone=no"/>
+	<meta name="apple-mobile-web-app-status-bar-style" content="black"/>
+	<script src="jquery-1.9.1.min.js"></script>
+</head>
+<body>
+<div align="center">
+	请选择教师姓名：
+	<select id="tealist" style="width:125px;"></select>
+
+	<br>
+	请选择学生班级：
+	<select id="classlist" onchange="classchange()" style="width:125px;"></select>
+
+	<br>
+	请选择学生姓名：
+	<select id="studentslist" onchange="studentschange()" style="width:125px;"></select>
+	<br>
+
+	<p id="baseinfoshow"> </p>
+	<table border="1" cellspacing="0">
+		<tr>
+			<th width="100">姓名</th>
+			<th width="100">评价教师</th>
+			<th width="180">提交时间</th>
+			<th width="200">附件</th>
+			<th width="500">交流内容</th>
+		</tr>
+
+		<tbody id="texttable" align="center">
+		</tbody>
+
+	</table>
+</div>
+<script>
+	studentslist = new Array();
+	$.ajax({
+		type: "GET",
+		url: "getinfo.php?method=init",
+		dataType:"json",
+		success: function (res) {
+			if (res.error == 0)
+			{
+				getteachers(res);
+				getclass(res);
+			}
+		}
+	});
+
+	function getclass(data)
+	{
+		var list = document.getElementById("classlist");
+		if (data.getclass == null)
+		{
+			list.options.add(new Option("无内容", 0));
+			return;
+		}
+		for (var i = 0; i < data.getclass.length; i++)
+		{
+			var temp = data.getclass[i];
+			list.options.add(new Option(temp.name,temp.cid));
+		}
+		classchange();
+	}
+
+	function getteachers(data)
+	{
+		var list = document.getElementById("tealist");
+		if (data.getteachers == null)
+		{
+			list.options.add(new Option("无内容", 0));
+			return;
+		}
+		list.options.add(new Option("全部教师", 1000));
+		for (var i = 0; i < data.getteachers.length; i++)
+		{
+			var temp = data.getteachers[i];
+			list.options.add(new Option(temp.name,temp.tid));
+		}
+	}
+
+	function getstudnets(data)
+	{
+		var list = document.getElementById("studentslist");
+		list.innerText = "";
+		if (data.getstudents == null)
+		{
+			list.options.add(new Option("无内容", 0));
+			setinnerText(document.getElementById("texttable"), "");
+			return;
+		}
+		studentslist = data.getstudents;
+		list.options.add(new Option("全部学生", 1000));
+		for (var i = 0; i < data.getstudents.length; i++)
+		{
+			var temp = data.getstudents[i];
+			list.options.add(new Option(temp.name, temp.sid));
+		}
+		studentschange();
+	}
+
+	function setinnerText(obj, val)
+	{
+		if (obj.innerHTML == null) obj.textContent = val;
+		else obj.innerHTML = val;
+	}
+
+	function getstudentdata(data)
+	{
+		var table = document.getElementById("texttable");
+		setinnerText(table, "");
+		if (data.getstudentdata == null)
+		{
+			return;
+		}
+		var sumtemp = "";
+		for (var i = 0; i < data.getstudentdata.length; i++)
+		{
+			var temp = data.getstudentdata[i];
+			var tmp = "<tr>";
+			tmp += "<td>";
+			tmp += temp.sname;
+			tmp += "</td>";
+			tmp += "<td>";
+			tmp += temp.tname;
+			tmp += "</td>";
+			tmp += "<td>";
+			tmp += temp.timestamp;
+			tmp += "</td>";
+			tmp += "<td>";
+			if (temp.filename != null)
+			{
+				filenamearr = temp.filename.split("|");
+				uploadurlarr = temp.uploadurl.split("|");
+				for (var j = 0; j < filenamearr.length; j++)
+				{
+					if (uploadurlarr[j] != "")
+					{
+						tmp += "<a href=\"uploads/" + uploadurlarr[j] +"\" target=\"_blank\">"+ filenamearr[j] + "</a><br>"
+					}
+				}
+			}
+			else
+			{
+				tmp += "无附件";
+			}
+			tmp += "</td>"
+			tmp += "<td>"
+			tmp += temp.filetext;
+			tmp += "</td>"
+
+
+			tmp += "</tr>"
+			sumtemp += tmp;
+		}
+		setinnerText(table, sumtemp);
+		baseinfoshow();
+	}
+
+	function classchange()
+	{
+		$.ajax({
+			type: "GET",
+			url: "getinfo.php?method=getstudents&arg=" + document.getElementById("classlist").value,
+			dataType:"json",
+			success: function (res) {
+				if (res.error == 0)
+				{
+					getstudnets(res);
+				}
+			}
+		});
+
+	}
+
+	function studentschange()
+	{
+		var student = document.getElementById("studentslist").value;
+		var tea = document.getElementById("tealist").value;
+		if (student == 1000)
+		{
+			$.ajax({
+				type: "GET",
+				url: "getinfo.php?method=getclasstudentdata&arg=" + document.getElementById("classlist").value + "&arg2=" + tea,
+				dataType:"json",
+				success: function (res) {
+					if (res.error == 0)
+					{
+						getstudentdata(res);
+					}
+				}
+			});
+		}
+		else
+		{
+			var baseinfo = document.getElementById("baseinfoshow");
+			var slist = document.getElementById("studentslist");
+			for (var i = 0; i < studentslist.length; i++)
+			{
+				if (studentslist[i].sid == slist.value)
+				{
+					baseinfo.innerText = studentslist[i].baseinfo;
+					break;
+				}
+			}
+			$.ajax({
+				type: "GET",
+				url: "getinfo.php?method=getstudentdata&arg=" + document.getElementById("studentslist").value + "&arg2=" + tea,
+				dataType:"json",
+				success: function (res) {
+					if (res.error == 0)
+					{
+						getstudentdata(res);
+					}
+				}
+			});
+		}
+	}
+
+</script>
+</body>
