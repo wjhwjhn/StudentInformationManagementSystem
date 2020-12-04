@@ -1,0 +1,2 @@
+# StudentInformationManagementSystem
+基于PHP和mysql编写的简易学生信息管理系统
